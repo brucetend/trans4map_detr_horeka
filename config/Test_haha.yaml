@@ -1,0 +1,53 @@
+ckpt_root: ckpt
+cuda: True
+num_workers: 0
+
+dataset:
+    name: matterport_SemDataset33
+    common_kwargs:
+        root: /cvhci/temp/zteng/hoho_data4096
+        hw: (1024, 2048)
+    train_kwargs:
+        fold: 1_test
+        flip: False
+        rotate: False
+    valid_kwargs:
+        fold: 1_valid
+
+training:
+    epoch: 60
+    batch_size: 1
+    save_every: 30
+    optim_lr: 0.0001
+    optim_poly_gamma: 0.9
+    optim_betas: (0.9, 0.999)
+
+model:
+    file: lib.model.hohonet
+    modelclass: HoHoNet
+    kwargs:
+        emb_dim: 256
+        input_norm: ugscnn
+        backbone_config:
+            module: Resnet
+            kwargs:
+                input_extra: 1
+                backbone: resnet101
+                input_height: 1024
+        decode_config:
+            module: EfficientHeightReduction
+        refine_config:
+            module: TransEn
+            kwargs:
+                position_encode: 512
+                num_layers: 1
+        modalities_config:
+            SemanticSegmenter:
+                num_classes: 21
+                label_weight:
+                basis: dct
+                loss: ce
+                n_components: 64
+                output_height: 1024
+
+
