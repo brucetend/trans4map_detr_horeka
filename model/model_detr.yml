@@ -7,20 +7,27 @@ model:
     mem_feature_dim: 256
     mem_update: replace
     ego_downsample: False
+    bev_h: 500
+    bev_w: 500
+    batch_size_every_processer: 1
+
 data:
     train_split: train
     val_split: val
     test_split: test
-    root: /cvhci/data/VisLoc/zteng/trans4map_baseline
+    root: /hkfs/work/workspace/scratch/tp9819-trans4map/dataset_zteng/trans4map_baseline/
+    # root: /cvhci/data/VisLoc/zteng/trans4map_baseline
+
     ego_downsample: False
     feature_type: lastlayer
 training:
     train_epoch: 50
     batch_size: 4
     n_workers: 8
-    print_interval: 20
+    print_interval: 10
     optimizer:
-        lr:  0.00006
+        lr:  0.00012
+        # lr:  0.00006
         betas: [0.9, 0.999]
         weight_decay: 0.001
     scheduler:

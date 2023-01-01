@@ -89,6 +89,7 @@ class MyCustomBaseTransformerLayer(BaseModule):
             feedforward_channels='feedforward_channels',
             ffn_dropout='ffn_drop',
             ffn_num_fcs='num_fcs')
+        # print('deprecated_args:', deprecated_args)
 
 
         for ori_name, new_name in deprecated_args.items():

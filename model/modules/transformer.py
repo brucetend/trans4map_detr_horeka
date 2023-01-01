@@ -51,7 +51,8 @@ class PerceptionTransformer(BaseModule):
                  **kwargs):
         super(PerceptionTransformer, self).__init__(**kwargs)
 
-        # print('encoder:', encoder)
+        print('decoder:', decoder)
+
         self.encoder = build_transformer_layer_sequence(encoder)
         self.decoder = build_transformer_layer_sequence(decoder)
 

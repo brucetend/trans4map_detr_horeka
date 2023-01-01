@@ -135,33 +135,36 @@ class SpatialCrossAttention(BaseModule):
 
         if query_pos is not None:
             query = query + query_pos
-        # print('query_pos11:', query_pos)   ### 测试中也为None,是因为temporal_self_attention加过了
-
+            # print('query_pos11:', query_pos)   ### 测试中也为None,是因为temporal_self_attention加过了
 
         bs, num_query, _ = query.size()
 
         D = reference_points_cam.size(2)
-        ## print('D:', D) # D == 4 pillar的数目
+        # print('DDD:', reference_points_cam.size()) # D == 1 pillar的数目，暂时 #### torch.Size([1, 54694, 1, 2])
         indexes = []
 
-
         for i, mask_per_img in enumerate(bev_mask):
-            # print('mask_per_img:', mask_per_img.size(), bev_mask[0].size())
-            #### torch.Size([40000, 4])
-            index_query_per_img = mask_per_img.sum(-1).nonzero().squeeze(-1) ### nonzero就是找到所有不为0的索引
+
+            mask_per_img = torch.flatten(mask_per_img)
+            # print('mask_per_img:', mask_per_img.size(), bev_mask[0].size(),bev_mask.size())
+            #### torch.Size([40000, 4]), torch.Size([250000])
+            # index_query_per_img = mask_per_img.sum(-1).nonzero().squeeze(-1) ### nonzero就是找到所有不为0的索引
+            index_query_per_img = mask_per_img.nonzero().squeeze(-1)
             # print('index_query_per_img:', index_query_per_img.size(), index_query_per_img) ### 40000 顺序排列
             ### index_query_per_img: torch.Size([36638]) ###相当于40000格子中有的点和木有的点的index
 
             ## aaa = mask_per_img[0].sum(-1)
             indexes.append(index_query_per_img)
-            ### print('max_len, indexes:', len(indexes)) ##### indexes = 1
+            # print('max_len, indexes:', len(indexes), indexes) ##### indexes = 1
             ### torch.Size([1, 40000, 4]) torch.Size([6301])
 
         max_len = max([len(each) for each in indexes])
 
+        ################################################################################################################
+
         # each camera only interacts with its corresponding BEV queries. This step can greatly save GPU memory.
         queries_rebatch = query.new_zeros([bs, self.num_cams, max_len, self.embed_dims])
-        reference_points_rebatch = reference_points_cam.new_zeros([bs, self.num_cams, max_len, D, 2])
+        # reference_points_rebatch = reference_points_cam.new_zeros([bs, self.num_cams, max_len, D, 2])
         # print('queries_rebatch, reference_points_rebatch:', queries_rebatch.size(), reference_points_rebatch.size(), reference_points_cam.size())
         ### torch.Size([1, 6, 9675, 256]), torch.Size([1, 6, 9675, 4, 2]), torch.Size([1, 40000, 4, 2])
 
@@ -172,20 +175,23 @@ class SpatialCrossAttention(BaseModule):
                 index_query_per_img = indexes[i]
 
                 # print('reference_points_per_img, index_query_per_img:', reference_points_per_img.size(), index_query_per_img.size())
-                ### torch.Size([40000, 4, 2]), torch.Size([36638])
+                ### torch.Size([1, 19308, 1, 2]), torch.Size([19308])
                 queries_rebatch[j, i,:len(index_query_per_img)] = query[j, index_query_per_img]
+                # reference_points_rebatch[j, i,:len(index_query_per_img)] = reference_points_per_img[j,index_query_per_img]
+                reference_points_rebatch = reference_points_cam
+                # print('queries_rebatch, reference_rebatch:', queries_rebatch.size(), reference_points_rebatch)  ### torch.Size([1, 1, 41662, 256]) torch.Size([1, 41662, 1, 2])
 
-                reference_points_rebatch[j, i,:len(index_query_per_img)] = reference_points_per_img[j,index_query_per_img]
-                device = 'cuda'
-                reference_points_rebatch = reference_points_rebatch.to(device)
+                # device = 'cuda'
+                # reference_points_rebatch = reference_points_rebatch.to(device)
                 # print('reference_points_rebatch:', reference_points_rebatch.size())
                 #### 被mask出来的query和reference_points并且被裁剪 ### torch.Size([1, 1, 36638, 4, 2])
+                # print('reference_points_rebatch:', reference_points_rebatch.size())
 
         ### print('queries_rebatch:', queries_rebatch.size())
         #### torch.Size([1, 6, 9675, 256])
 
         num_cams, l, bs, embed_dims = key.shape
-        # print('key_shape:', key.shape)   ### torch.Size([6, 30825, 1, 256])
+        # print('key_shape:', key.shape)   ### torch.Size([1, 174080, 1, 256])
 
         key = key.permute(2, 0, 1, 3).reshape(
             bs * self.num_cams, l, self.embed_dims)
@@ -193,7 +199,7 @@ class SpatialCrossAttention(BaseModule):
             bs * self.num_cams, l, self.embed_dims)
 
         # print("key_value:", key.size(), value.size(), query.size())
-        # torch.Size([6, 30825, 256]) torch.Size([6, 30825, 256]) torch.Size([1, 40000, 256])
+        # torch.Size([1, 174080, 256]) torch.Size([6, 174080, 256]) torch.Size([1, 40000, 256])
         # print('level_start_index_0:', level_start_index)
 
         ## print('queries_in_deformable_attention:', key.size())
@@ -209,24 +215,27 @@ class SpatialCrossAttention(BaseModule):
             for i, index_query_per_img in enumerate(indexes):
                 slots[j, index_query_per_img] += queries[j, i, :len(index_query_per_img)]
         # print('slots:', slots.size(), queries[j, i, :len(index_query_per_img)].size())
-        ### torch.Size([1, 40000, 256]) torch.Size([36638, 256])
+        ### torch.Size([1, 250000, 256]) torch.Size([36638, 256])
         ### slots和query同格式，就是要把所有的queries都加上去，尽管短了很多!!!
         ### 不管原来有多短，都给他固定为40000长了~
 
         ## print('bev_mask_size:', bev_mask.size()) ### torch.Size([1, 40000, 4])
-        bev_mask = bev_mask.to(device)
-        count = bev_mask.sum(-1) > 0
-
-        ### [1, 40000]
-        ## count = count.permute(1, 2, 0).sum(-1)
+        # bev_mask = bev_mas
+        #
+        # # count = bev_mask.sum(-1) > 0
+        #
+        # ### [1, 40000]
+        # count = count[..., None]
+        # count = count.permute(0, 1, 2).sum(-1)
         # print('count:', count.size(), count)
-
-        ### 无论多小，最小值都是1
-        count = torch.clamp(count, min=1.0)
-        ### [1, 40000, 1]
-
-        slots = slots / count[..., None]
-        slots = self.output_proj(slots)
+        #
+        # ### 无论多小，最小值都是1
+        # count = torch.clamp(count, min=1.0)
+        # print('count2:', count.size(), count[..., None].size(), slots.size())
+        # ### [1, 40000, 1]
+        #
+        # slots = slots / count[..., None]
+        # slots = self.output_proj(slots)
 
         return self.dropout(slots) + inp_residual
 
@@ -382,6 +391,7 @@ class MSDeformableAttention3D(BaseModule):
         if identity is None:
             identity = query
         if query_pos is not None:
+            # print('query_pos:', query_pos.size()) ### not here
             query = query + query_pos
 
         if not self.batch_first:
@@ -464,9 +474,8 @@ class MSDeformableAttention3D(BaseModule):
 
             # print('reference_points:', reference_points.size(), sampling_offsets.size(), reference_points.max(), reference_points.min(), sampling_offsets.max(), sampling_offsets.min())
             ### torch.Size([6, 36638, 1, 1, 1, 4, 2]) torch.Size([6, 36638, 8, 4, 2, 4, 2])
-
+            reference_points = reference_points.to(device = sampling_offsets.device)
             sampling_locations = reference_points + sampling_offsets
-
 
             bs, num_query, num_heads, num_levels, num_points, num_Z_anchors, xy = sampling_locations.shape
             assert num_all_points == num_points * num_Z_anchors
@@ -502,7 +511,7 @@ class MSDeformableAttention3D(BaseModule):
                 value, spatial_shapes, level_start_index, sampling_locations,
                 attention_weights, self.im2col_step)
             # print('MultiScaleDeformableAttnFunction:', value.size(), sampling_locations.size(), attention_weights.size(), output.size())
-            ### torch.Size([6, 30825, 8, 32]) torch.Size([6, 9675, 8, 4, 8, 2]) torch.Size([6, 9675, 8, 4, 8]), torch.Size([1, 9675, 256])
+            ### torch.Size([1, 174080, 8, 32]) torch.Size([1, 40000, 8, 4, 8, 2]) torch.Size([1, 40000, 8, 4, 8]) torch.Size([1, 40000, 256])
             ### 8头注意力拆分！
 
         else:

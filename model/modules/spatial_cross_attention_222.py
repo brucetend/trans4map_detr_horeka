@@ -466,7 +466,7 @@ if __name__ == '__main__':
     print("AAA:", AAA_attention_test)
 
 
-    from torchsummary import summary
+    # from torchsummary import summary
     # num_query = 9675
     num_value = 30825
     level_start_index_haha = torch.tensor([0, 23200, 29000, 30450], device='cuda:0')
