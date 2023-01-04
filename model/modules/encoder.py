@@ -329,6 +329,7 @@ class BEVFormerEncoder(TransformerLayerSequence):
 
         for lid, layer in enumerate(self.layers):
             # print('layer:', layer) ### BEVFormerLayer as forward
+
             output = layer(
                 bev_query,
                 key,
@@ -483,8 +484,8 @@ class BEVFormerLayer(MyCustomBaseTransformerLayer):
                                                      f'to the number of attention in ' \
                 f'operation_order {self.num_attn}'
 
-        ### print('operation_order:', self.operation_order)
-        ### operation_order: ('self_attn', 'norm', 'cross_attn', 'norm', 'ffn', 'norm')
+        # print('operation_order:', self.operation_order)
+        ### operation_order: ('cross_attn', 'norm', 'ffn', 'norm')
 
         for layer in self.operation_order:
             # temporal self attention
@@ -511,6 +512,7 @@ class BEVFormerLayer(MyCustomBaseTransformerLayer):
 
             elif layer == 'norm':
                 query = self.norms[norm_index](query)
+                # print('query_in_norm:', query.size())
                 norm_index += 1
 
             # spaital cross attention
@@ -535,6 +537,8 @@ class BEVFormerLayer(MyCustomBaseTransformerLayer):
                     level_start_index=level_start_index,
                     # **kwargs2
                 )
+                # print('after_cross_attention:', query.size())
+
                 attn_index += 1
                 identity = query
 
@@ -543,6 +547,8 @@ class BEVFormerLayer(MyCustomBaseTransformerLayer):
 
                 query = self.ffns[ffn_index](
                     query, identity if self.pre_norm else None)
+
+                # print('query_in_ffn:', query.size())
                 ffn_index += 1
 
         return query

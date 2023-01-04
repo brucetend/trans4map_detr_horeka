@@ -4,7 +4,7 @@
 # ---------------------------------------------
 #  Modified by Zhiqi Li
 # ---------------------------------------------
-
+import numpy as np
 from mmcv.ops.multi_scale_deform_attn import multi_scale_deformable_attn_pytorch
 import warnings
 import torch
@@ -211,31 +211,51 @@ class SpatialCrossAttention(BaseModule):
         # print('queries_after_attention:', queries.size()) ### MSDeformableAttention3D forward
         ### torch.Size([1, 1, 36638, 256])
 
-        for j in range(bs):
-            for i, index_query_per_img in enumerate(indexes):
-                slots[j, index_query_per_img] += queries[j, i, :len(index_query_per_img)]
-        # print('slots:', slots.size(), queries[j, i, :len(index_query_per_img)].size())
+        ############################################################################################################################
+        # #### 替换这个slots把他变成对号入座！
+        row_column_index = torch.where(bev_mask == True)
+        row = row_column_index[1]
+        column = row_column_index[2]
+        # print('row_column:', row.size(), column.size())        
+
+        slots_mask = slots.reshape(1, 500, 500, 256)
+
+        slots_mask[0, row, column, :] = queries[0,0,:,:]
+        # for i in range(len(row)):
+        #     slots_mask[0, row[i], column[i],:] = queries[0,0,i,:]
+        
+        # print('slots_mask:', slots_mask.size(), slots_mask.device, slots_mask[0, row[10], column[10],:])
+
+        slots = slots_mask.reshape(1, 250000, 256)
+
+        
+
+        # for j in range(bs):
+        #     for i, index_query_per_img in enumerate(indexes):
+        #         print('index_in_slots:', j ,index_query_per_img.size())
+        #         slots[j, index_query_per_img] += queries[j, i, :len(index_query_per_img)]
+        
+        # print('slots:', slots.size(), queries[j, i, :len(index_query_per_img)].size(), slots[:, 20000:20100],'**:', slots[:, 100000:100100])
         ### torch.Size([1, 250000, 256]) torch.Size([36638, 256])
         ### slots和query同格式，就是要把所有的queries都加上去，尽管短了很多!!!
-        ### 不管原来有多短，都给他固定为40000长了~
 
-        ## print('bev_mask_size:', bev_mask.size()) ### torch.Size([1, 40000, 4])
-        # bev_mask = bev_mas
-        #
-        # # count = bev_mask.sum(-1) > 0
-        #
-        # ### [1, 40000]
-        # count = count[..., None]
-        # count = count.permute(0, 1, 2).sum(-1)
-        # print('count:', count.size(), count)
-        #
-        # ### 无论多小，最小值都是1
-        # count = torch.clamp(count, min=1.0)
-        # print('count2:', count.size(), count[..., None].size(), slots.size())
-        # ### [1, 40000, 1]
-        #
-        # slots = slots / count[..., None]
-        # slots = self.output_proj(slots)
+        # # print('bev_mask_size:', bev_mask.size()) ### torch.Size([1, 500, 500])
+        # # bev_mask = bev_mask
+        # #
+        # # # count = bev_mask.sum(-1) > 0
+        # #
+        # # ### [1, 40000]
+        # # count = count[..., None]
+        # # count = count.permute(0, 1, 2).sum(-1)
+        # # print('count:', count.size(), count)
+        # #
+        # # ### 无论多小，最小值都是1
+        # # count = torch.clamp(count, min=1.0)
+        # # print('count2:', count.size(), count[..., None].size(), slots.size())
+        # # ### [1, 40000, 1]
+        # #
+        # # slots = slots / count[..., None]
+        slots = self.output_proj(slots)
 
         return self.dropout(slots) + inp_residual
 
@@ -461,7 +481,9 @@ class MSDeformableAttention3D(BaseModule):
             ## torch.Size([1, 36638, 4, 2])
 
             reference_points = reference_points[:, :, None, None, None, :, :]
+            # sampling_offsets = sampling_offsets / (offset_normalizer[None, None, None, :, None, :] * 10000)
             sampling_offsets = sampling_offsets / offset_normalizer[None, None, None, :, None, :]
+
             # print('offset_normalizer:', sampling_offsets.size(), offset_normalizer) ### torch.Size([4, 2]), torch.Size([1, 36638, 8, 4, 8, 2])
                 # tensor([[200, 116], Normalizer
                 #         [100,  58],

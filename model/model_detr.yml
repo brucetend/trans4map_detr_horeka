@@ -26,13 +26,13 @@ training:
     n_workers: 8
     print_interval: 10
     optimizer:
-        lr:  0.00012
-        # lr:  0.00006
+        # lr:  0.00012
+        lr:  0.00006
         betas: [0.9, 0.999]
-        weight_decay: 0.001
+        weight_decay: 0.0001
     scheduler:
         lr_decay_rate: 0.8
-        lr_epoch_per_decay: 30
+        lr_epoch_per_decay: 5
     resume: #runs/gru_fullrez_lastlayer_m256/fuse/smnet_mp3d_best_model.pkl
     load_model: #runs/gru_fullrez_lastlayer_m256/54731/smnet_mp3d_best_model.pkl
 seed: 9876

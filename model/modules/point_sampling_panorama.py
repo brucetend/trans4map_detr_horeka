@@ -319,7 +319,7 @@ def get_bev_features(
     ### tensor([0, 23200, 29000, 30450]
 
     feat_flatten = feat_flatten.permute(0, 2, 1, 3)  # (num_cam, H*W, bs, embed_dims) (6, 30825, 1, 256)
-
+    
     return bev_queries, feat_flatten, bev_h, bev_w, bev_pos, spatial_shapes, level_start_index
 
 

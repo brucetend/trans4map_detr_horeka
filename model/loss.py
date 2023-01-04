@@ -13,6 +13,7 @@ class SemmapLoss(nn.Module):
         loss = torch.mul(loss, mask)
         # -- mask is assumed to have a least one value
         loss = loss.sum()/mask.sum()
+        # print('mask_in_loss:', mask.sum(), "loss:", loss)
         return loss
 
 
